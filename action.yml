@@ -1,0 +1,66 @@
+name: Gameye Deploy
+description: Register a new image tag with Gameye, wait until it is pulled in a region, and optionally smoke-test it by starting a session.
+author: Gameye
+branding:
+  icon: server
+  color: purple
+
+inputs:
+  api-token:
+    description: Gameye API token. Store it as a repository secret.
+    required: true
+  environment:
+    description: "Gameye environment: sandbox (self-serve) or production (enterprise)."
+    default: sandbox
+  api-url:
+    description: Overrides the API origin for the environment. Must be https.
+    default: ""
+  application:
+    description: The Gameye application name (not the image reference).
+    required: true
+  tag:
+    description: The image tag to register, usually the one you just pushed.
+    required: true
+  region:
+    description: Region to wait for and run the smoke test in. Required for wait-for-tag and smoke-test.
+    default: ""
+  enable-tag:
+    description: Register the tag with the application.
+    default: "true"
+  wait-for-tag:
+    description: Wait until the tag is pulled in the region.
+    default: "true"
+  wait-timeout:
+    description: How long to wait for the tag, for example 15m.
+    default: 15m
+  smoke-test:
+    description: Start a session on the tag, check it stays running, then stop it.
+    default: "false"
+  smoke-duration:
+    description: How long the session must stay running to pass, for example 60s.
+    default: 60s
+  startup-timeout:
+    description: How long the session may take to reach running.
+    default: 3m
+  smoke-args:
+    description: Program arguments for the smoke-test session, one per line.
+    default: ""
+  smoke-env:
+    description: Environment variables for the smoke-test session, one KEY=VALUE per line. Values are masked in the log.
+    default: ""
+  show-logs:
+    description: "When to print the session's logs: on-failure, always or never."
+    default: on-failure
+
+outputs:
+  session-id:
+    description: The smoke-test session id.
+  host:
+    description: The smoke-test session's host IP.
+  ports:
+    description: The smoke-test session's port mappings, as JSON.
+
+runs:
+  using: node24
+  main: src/main.mjs
+  post: src/post.mjs

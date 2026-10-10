@@ -1,0 +1,39 @@
+# Build the server image, push it to GHCR, register it with Gameye and smoke-test it.
+name: Deploy game server
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/${{ github.repository_owner }}/my-game-server:${{ github.sha }}
+
+      - uses: gameye/deploy-action@v0
+        with:
+          api-token: ${{ secrets.GAMEYE_API_TOKEN }}
+          application: my-game-server
+          tag: ${{ github.sha }}
+          region: europe
+          smoke-test: true
+          smoke-duration: 60s
+          smoke-args: |
+            --map=test

@@ -1,0 +1,37 @@
+# Manual end-to-end run of this action against a real Gameye environment.
+# Needs a repository secret GAMEYE_API_TOKEN for an organization that owns `application`.
+name: e2e
+on:
+  workflow_dispatch:
+    inputs:
+      application:
+        description: Gameye application name
+        required: true
+      tag:
+        description: An image tag that exists in the application's registry
+        required: true
+      region:
+        description: Region without a warm pool for the application
+        required: true
+      environment:
+        description: sandbox or production
+        default: sandbox
+permissions:
+  contents: read
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: deploy
+        uses: ./
+        with:
+          api-token: ${{ secrets.GAMEYE_API_TOKEN }}
+          environment: ${{ inputs.environment }}
+          application: ${{ inputs.application }}
+          tag: ${{ inputs.tag }}
+          region: ${{ inputs.region }}
+          smoke-test: true
+          smoke-duration: 30s
+          show-logs: always
+      - run: echo "session ${{ steps.deploy.outputs.session-id }} on ${{ steps.deploy.outputs.host }}"

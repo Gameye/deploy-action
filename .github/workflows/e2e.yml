@@ -11,8 +11,11 @@ on:
         description: An image tag that exists in the application's registry
         required: true
       region:
-        description: Region without a warm pool for the application
+        description: Region(s) without a warm pool for the application, comma-separated; the smoke test runs in the first
         required: true
+      wait-timeout:
+        description: How long to wait for the tag in every region
+        default: 15m
       environment:
         description: sandbox or production
         default: sandbox
@@ -21,6 +24,7 @@ on:
         default: ""
 permissions:
   contents: read
+  deployments: write
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -35,6 +39,8 @@ jobs:
           application: ${{ inputs.application }}
           tag: ${{ inputs.tag }}
           region: ${{ inputs.region }}
+          wait-timeout: ${{ inputs.wait-timeout }}
+          github-deployment: e2e-${{ inputs.environment }}
           smoke-test: true
           smoke-duration: 30s
           show-logs: always

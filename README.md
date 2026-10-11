@@ -54,7 +54,7 @@ Give the token only what the steps you use need:
 
 | Step | Scopes |
 |---|---|
-| Register the tag | `application:write` and `regions:read` (the API documents `application:write`, but Gameye currently checks `regions:read`) |
+| Register the tag | `application:write`, `regions:read` |
 | Wait for the tag | `regions:read` |
 | Smoke test | `session:start`, `session:read`, `session:stop`, plus `logs:read` for logs |
 

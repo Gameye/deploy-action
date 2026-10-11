@@ -22,7 +22,7 @@ The action uses only the public Gameye Session API, and it has no dependencies.
 
 [`examples/deploy.yml`](examples/deploy.yml) is a complete workflow: build, push to GHCR, register and smoke-test.
 
-Gameye must be able to pull the image. For a private GHCR package, follow the [GHCR guide](https://docs.gameye.com), or the tag will never become available and the wait step times out.
+Gameye must be able to pull the image. For a private GHCR package, follow the [GHCR guide](https://gameye.com/docs/getting-started/ghcr/), or the tag will never become available and the wait step times out.
 
 ## Inputs
 
@@ -71,3 +71,11 @@ Give the token only what the steps you use need:
 ```sh
 npm test
 ```
+
+## About Gameye
+
+[Gameye](https://gameye.com/?utm_source=github&utm_medium=readme&utm_campaign=deploy-action) is a managed hosting platform for multiplayer game servers. You bring a container image, and Gameye starts a dedicated server for each match through one API.
+
+- Guide: [gameye.com/docs/guides/using-gameye/github-actions](https://gameye.com/docs/guides/using-gameye/github-actions/?utm_source=github&utm_medium=readme&utm_campaign=deploy-action)
+- Gameye docs: [gameye.com/docs](https://gameye.com/docs/?utm_source=github&utm_medium=readme&utm_campaign=deploy-action)
+- Try it free: [trial.gameye.com](https://trial.gameye.com/?utm_source=github&utm_medium=readme&utm_campaign=deploy-action)

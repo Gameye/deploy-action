@@ -3,7 +3,7 @@
 This action puts a freshly pushed game server image live on [Gameye](https://gameye.com) from GitHub Actions. It can also prove the build boots before anyone plays it.
 
 1. **Register the tag** with your Gameye application.
-2. **Wait** until Gameye has pulled the tag in a region.
+2. **Wait** until Gameye has pulled the tag in one or more regions.
 3. **Smoke test** (optional): start a session on the new tag, check that it reaches `running` and stays there for `smoke-duration`, then stop it. If the server crashes or never comes up, the job fails and prints the server's logs.
 
 The action uses only the public Gameye Session API, and it has no dependencies.
@@ -31,11 +31,11 @@ Gameye must be able to pull the image. For a private GHCR package, follow the [G
 | `api-token` | required | Gameye API token. Keep it in a secret. |
 | `application` | required | Gameye application name (not the image reference). |
 | `tag` | required | Image tag to register. |
-| `region` | | Region to wait for and smoke-test in. Required for `wait-for-tag` and `smoke-test`. |
+| `region` | | Region to wait for and smoke-test in. List several, comma- or newline-separated, to wait for all of them; the smoke test runs in the first. Required for `wait-for-tag` and `smoke-test`. |
 | `environment` | `sandbox` | `sandbox` (self-serve) or `production` (enterprise). |
 | `api-url` | | Overrides the API origin. It must use https. |
 | `enable-tag` | `true` | Register the tag with the application. |
-| `wait-for-tag` | `true` | Wait until the tag is pulled in `region`. |
+| `wait-for-tag` | `true` | Wait until the tag is pulled in every listed region. |
 | `wait-timeout` | `15m` | How long to wait for the tag. |
 | `smoke-test` | `false` | Start a session on the tag, check it stays up, then stop it. |
 | `smoke-duration` | `60s` | How long the session must stay `running` to pass. |
@@ -43,10 +43,16 @@ Gameye must be able to pull the image. For a private GHCR package, follow the [G
 | `smoke-args` | | Program arguments for the session, one per line. |
 | `smoke-env` | | Environment variables for the session, one `KEY=VALUE` per line. The values are masked in the log. |
 | `show-logs` | `on-failure` | When to print the session's logs: `on-failure`, `always` or `never`. |
+| `github-deployment` | | Record the run as a GitHub Deployment to this environment, for example `gameye-sandbox`. Needs `permissions: deployments: write`. |
+| `github-token` | `${{ github.token }}` | Token for the GitHub Deployment. |
 
 ## Outputs
 
 `session-id`, `host` and `ports` (JSON) from the smoke-test session.
+
+## On the run page
+
+Every run writes a job summary: the regions and how long each took to pull the tag, the smoke-test result with the session's host and ports, and the error and the server's last 50 log lines when it fails. With `github-deployment` set, the repository's Deployments list also shows each run, linked to its log, marked in progress, successful or failed.
 
 ## API token scopes
 

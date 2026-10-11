@@ -34,3 +34,15 @@ test("rejects missing and invalid inputs", () => {
   assert.throws(() => readInputs(env({ "INPUT_SMOKE-TEST": "yes" })), /true or false/);
   assert.throws(() => readInputs(env({ "INPUT_SHOW-LOGS": "sometimes" })), /show-logs/);
 });
+
+test("splits regions on commas and newlines, dropping blanks and repeats", () => {
+  const inputs = readInputs(env({ INPUT_REGION: "europe, us-east\nasia\n\neurope" }));
+  assert.deepEqual(inputs.regions, ["europe", "us-east", "asia"]);
+});
+
+test("reads the GitHub deployment inputs", () => {
+  const inputs = readInputs(env({ "INPUT_GITHUB-DEPLOYMENT": "gameye-sandbox", "INPUT_GITHUB-TOKEN": "gh" }));
+  assert.equal(inputs.githubDeployment, "gameye-sandbox");
+  assert.equal(inputs.githubToken, "gh");
+  assert.equal(readInputs(env()).githubDeployment, "");
+});

@@ -10,6 +10,7 @@ const UNREACHABLE_GRACE_MS = 60_000;
 const STOP_RETRY_MS = 60_000;
 // The longest a smoke test may take beyond startup and smoke durations, for API hiccups.
 const WATCH_SLACK_MS = 120_000;
+const LOG_TAIL_LINES = 50;
 const FAILED_STATUSES = new Set(["exited", "dead", "restarting", "draining", "shuttingdown"]);
 
 export class ActionFailure extends Error {}
@@ -55,8 +56,8 @@ function explain(error, inputs) {
     401: "The API token was rejected. Check the secret and the environment.",
     402: "Your Gameye quota is exhausted.",
     403: "The API token is missing a scope this step needs (see the README for the scopes).",
-    404: `Application "${inputs.application}", region "${inputs.region}" or tag "${inputs.tag}" was not found for this token's organization.`,
-    420: "Gameye could not start a session in this region right now. Try again later.",
+    404: `Application "${inputs.application}", region "${inputs.regions.join(", ")}" or tag "${inputs.tag}" was not found for this token's organization.`,
+    420: "Gameye could not start a session in this region: no server there has the tag yet, or the region is full. Check the tag is available there, then try again.",
   };
   const hint = hints[error.status];
   return new ActionFailure(hint ? `${error.message}. ${hint}` : error.message);
@@ -70,52 +71,64 @@ export async function run(inputs, deps) {
   }
 }
 
-async function steps(inputs, { client, core, sleep, now }) {
-  const { application, tag, region } = inputs;
-  if ((inputs.waitForTag || inputs.smokeTest) && !region) {
+async function steps(inputs, deps) {
+  const { application, tag, regions } = inputs;
+  const { client, core, report } = deps;
+  if ((inputs.waitForTag || inputs.smokeTest) && regions.length === 0) {
     throw new ActionFailure("region is required for wait-for-tag and smoke-test.");
   }
 
   if (inputs.enableTag) {
     await client.enableTag(application, tag);
+    report.registered = true;
     core.info(`Registered tag ${tag} on application ${application}.`);
   }
 
   if (inputs.waitForTag) {
-    await waitForTag(inputs, { client, core, sleep, now });
+    await waitForTag(inputs, deps);
   }
 
   if (inputs.smokeTest) {
-    return smokeTest(inputs, { client, core, sleep, now });
+    return smokeTest(inputs, deps);
   }
   return {};
 }
 
-async function waitForTag({ application, tag, region, waitTimeoutMs }, { client, core, sleep, now }) {
-  core.info(`Waiting for ${application}:${tag} to be pulled in ${region}...`);
-  const deadline = now() + waitTimeoutMs;
+async function waitForTag({ application, tag, regions, waitTimeoutMs }, { client, core, sleep, now, report }) {
+  core.info(`Waiting for ${application}:${tag} to be pulled in ${regions.join(", ")}...`);
+  const startedAt = now();
+  const deadline = startedAt + waitTimeoutMs;
+  const pending = new Set(regions);
+  for (const region of regions) report.regions[region] = { available: false };
   for (;;) {
-    try {
-      if (await client.tagExists(region, application, tag)) break;
-    } catch (error) {
-      // A 404 can mean Gameye does not know the tag yet, right after it was enabled.
-      if (!isTransient(error) && error.status !== 404) throw error;
-      core.info(`Still waiting (${error.message}).`);
+    for (const region of [...pending]) {
+      try {
+        if (await client.tagExists(region, application, tag)) {
+          pending.delete(region);
+          report.regions[region] = { available: true, waitedMs: now() - startedAt };
+          core.info(`Tag ${tag} is available in ${region}.`);
+        }
+      } catch (error) {
+        // A 404 can mean Gameye does not know the tag yet, right after it was enabled.
+        if (!isTransient(error) && error.status !== 404) throw error;
+        core.info(`Still waiting for ${region} (${error.message}).`);
+      }
     }
+    if (pending.size === 0) return;
     if (now() >= deadline) {
       throw new ActionFailure(
-        `Tag ${tag} was not pulled in ${region} within the wait-timeout. ` +
+        `Tag ${tag} was not pulled in ${[...pending].join(", ")} within the wait-timeout. ` +
           "Check that the image was pushed with this tag and that Gameye can pull it " +
           "(registry access for Gameye, or your organization's registry token).",
       );
     }
     await sleep(TAG_POLL_MS);
   }
-  core.info(`Tag ${tag} is available in ${region}.`);
 }
 
-async function smokeTest(inputs, { client, core, sleep, now }) {
-  const { application, tag, region } = inputs;
+async function smokeTest(inputs, { client, core, sleep, now, report }) {
+  const { application, tag } = inputs;
+  const region = inputs.regions[0];
   const id = randomUUID();
   // Saved before the session exists, so the post step can clean up after a cancel.
   core.saveState("session-id", id);
@@ -137,6 +150,7 @@ async function smokeTest(inputs, { client, core, sleep, now }) {
   core.setOutput("host", result.host);
   core.setOutput("ports", JSON.stringify(result.ports));
   core.info(`Started smoke-test session ${id} on ${started.host}.`);
+  report.smoke = { region, ...result, passed: false };
 
   let failure;
   try {
@@ -146,8 +160,10 @@ async function smokeTest(inputs, { client, core, sleep, now }) {
     failure = error;
   }
 
+  report.smoke.passed = !failure;
   if (inputs.showLogs === "always" || (failure && inputs.showLogs === "on-failure")) {
-    await printLogs(id, { client, core });
+    const lines = await printLogs(id, { client, core });
+    if (failure) report.smoke.logTail = lines?.slice(-LOG_TAIL_LINES);
   }
 
   const stopFailure = await stopSession(id, { client, core, sleep, now });
@@ -260,7 +276,9 @@ async function printLogs(id, { client, core }) {
     core.info(lines.join("\n"));
     core.info(`::${token}::`);
     core.endGroup();
+    return lines;
   } catch (error) {
     core.warning(`Could not fetch logs for session ${id}: ${error.message}`);
+    return undefined;
   }
 }

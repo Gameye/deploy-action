@@ -23,6 +23,10 @@ export function saveState(name, value, env = process.env) {
   if (env.GITHUB_STATE) appendKeyValue(env.GITHUB_STATE, name, value);
 }
 
+export function appendSummary(markdown, env = process.env) {
+  if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, markdown);
+}
+
 export function getState(name, env = process.env) {
   return env[`STATE_${name}`] ?? "";
 }

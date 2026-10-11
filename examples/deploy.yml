@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   packages: write
+  deployments: write
 
 jobs:
   deploy:
@@ -40,7 +41,8 @@ jobs:
           api-token: ${{ secrets.GAMEYE_API_TOKEN }}
           application: my-game-server
           tag: ${{ steps.image.outputs.tag }}
-          region: europe
+          region: europe, us-east
+          github-deployment: gameye-sandbox
           smoke-test: true
           smoke-duration: 60s
           smoke-args: |

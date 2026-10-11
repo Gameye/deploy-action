@@ -22,7 +22,7 @@ inputs:
     description: The image tag to register, usually the one you just pushed.
     required: true
   region:
-    description: Region to wait for and run the smoke test in. Required for wait-for-tag and smoke-test.
+    description: Region to wait for and smoke-test in. Several regions, comma- or newline-separated, are all waited for; the smoke test runs in the first. Required for wait-for-tag and smoke-test.
     default: ""
   enable-tag:
     description: Register the tag with the application.
@@ -51,6 +51,12 @@ inputs:
   show-logs:
     description: "When to print the session's logs: on-failure, always or never."
     default: on-failure
+  github-deployment:
+    description: Record the run as a GitHub Deployment to this environment name, for example gameye-sandbox. Needs `permissions: deployments: write`. Leave empty to skip.
+    default: ""
+  github-token:
+    description: Token used to create the GitHub Deployment.
+    default: ${{ github.token }}
 
 outputs:
   session-id:

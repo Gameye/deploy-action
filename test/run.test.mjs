@@ -6,7 +6,7 @@ import { ActionFailure, parseDuration, parseEnv, run, sessionTtl } from "../src/
 const baseInputs = {
   application: "my-game",
   tag: "v1.2.3",
-  region: "europe",
+  regions: ["europe"],
   enableTag: true,
   waitForTag: true,
   waitTimeoutMs: 60_000,
@@ -42,8 +42,9 @@ function harness({ tagExists = [true], sessions = [], client: overrides = {} } =
     saveState: (k, v) => { state[k] = v; },
     setOutput: (k, v) => { outputs[k] = v; },
   };
-  const deps = { client, core, sleep: async (ms) => { clock += ms; }, now: () => clock };
-  return { deps, calls, state, output, outputs, names: () => calls.map((c) => c[0]) };
+  const report = { application: "my-game", tag: "v1.2.3", environment: "sandbox", regions: {} };
+  const deps = { client, core, report, sleep: async (ms) => { clock += ms; }, now: () => clock };
+  return { deps, calls, state, output, outputs, report, names: () => calls.map((c) => c[0]) };
 }
 
 const running = (tag = "v1.2.3") => ({ status: "running", tag });
@@ -63,13 +64,13 @@ test("fails with a pointer to registry access when the tag never arrives", async
 
 test("requires a region for waiting or smoke testing", async () => {
   const h = harness();
-  await assert.rejects(run({ ...baseInputs, region: "" }, h.deps), /region is required/);
+  await assert.rejects(run({ ...baseInputs, regions: [] }, h.deps), /region is required/);
   assert.deepEqual(h.calls, []);
 });
 
 test("skips registration and waiting when disabled", async () => {
   const h = harness();
-  await run({ ...baseInputs, enableTag: false, waitForTag: false, region: "" }, h.deps);
+  await run({ ...baseInputs, enableTag: false, waitForTag: false, regions: [] }, h.deps);
   assert.deepEqual(h.calls, []);
 });
 
@@ -217,4 +218,33 @@ test("server logs cannot issue workflow commands", async () => {
   const token = h.output[i].slice("::stop-commands::".length);
   assert.ok(h.output[i + 1].includes("::add-mask::x"));
   assert.equal(h.output[i + 2], `::${token}::`);
+});
+
+test("waits for every listed region and smoke-tests in the first", async () => {
+  const pulled = { europe: [false, true], "us-east": [false, false, true] };
+  const h = harness({
+    sessions: [running()],
+    client: { tagExists: async (region) => (pulled[region].length > 1 ? pulled[region].shift() : pulled[region][0]) },
+  });
+  await run({ ...baseInputs, regions: ["europe", "us-east"], smokeTest: true }, h.deps);
+  assert.equal(h.report.regions.europe.available, true);
+  assert.equal(h.report.regions["us-east"].available, true);
+  assert.ok(h.report.regions["us-east"].waitedMs > h.report.regions.europe.waitedMs);
+  const [, body] = h.calls.find((c) => c[0] === "runSession");
+  assert.equal(body.location, "europe");
+  assert.equal(h.report.smoke.region, "europe");
+  assert.equal(h.report.smoke.passed, true);
+});
+
+test("a region that never gets the tag is named in the failure", async () => {
+  const h = harness({ client: { tagExists: async (region) => region === "europe" } });
+  await assert.rejects(run({ ...baseInputs, regions: ["europe", "asia"] }, h.deps), /not pulled in asia within/);
+  assert.deepEqual(h.report.regions.asia, { available: false });
+});
+
+test("a failed smoke test records the last log lines for the summary", async () => {
+  const h = harness({ sessions: [{ status: "exited", tag: "v1.2.3" }] });
+  await assert.rejects(run({ ...baseInputs, smokeTest: true }, h.deps));
+  assert.equal(h.report.smoke.passed, false);
+  assert.deepEqual(h.report.smoke.logTail, ["booting", "crashed: missing map"]);
 });

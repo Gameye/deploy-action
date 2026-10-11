@@ -16,6 +16,9 @@ on:
       environment:
         description: sandbox or production
         default: sandbox
+      api-url:
+        description: Optional https API origin, overriding environment
+        default: ""
 permissions:
   contents: read
 jobs:
@@ -28,6 +31,7 @@ jobs:
         with:
           api-token: ${{ secrets.GAMEYE_API_TOKEN }}
           environment: ${{ inputs.environment }}
+          api-url: ${{ inputs.api-url }}
           application: ${{ inputs.application }}
           tag: ${{ inputs.tag }}
           region: ${{ inputs.region }}

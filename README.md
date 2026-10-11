@@ -15,7 +15,7 @@ The action uses only the public Gameye Session API, and it has no dependencies.
   with:
     api-token: ${{ secrets.GAMEYE_API_TOKEN }}
     application: my-game-server
-    tag: ${{ github.sha }}
+    tag: ${{ steps.image.outputs.tag }}  # the tag you just pushed
     region: europe
     smoke-test: true
 ```

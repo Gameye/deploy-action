@@ -21,17 +21,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Choose the image name and tag
+        id: image
+        shell: bash
+        run: |
+          # Docker image names must be lowercase; GitHub owners may not be.
+          echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/my-game-server" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v6
         with:
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository_owner }}/my-game-server:${{ github.sha }}
+          tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
 
       - uses: gameye/deploy-action@v0
         with:
           api-token: ${{ secrets.GAMEYE_API_TOKEN }}
           application: my-game-server
-          tag: ${{ github.sha }}
+          tag: ${{ steps.image.outputs.tag }}
           region: europe
           smoke-test: true
           smoke-duration: 60s

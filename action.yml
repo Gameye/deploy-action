@@ -52,7 +52,7 @@ inputs:
     description: "When to print the session's logs: on-failure, always or never."
     default: on-failure
   github-deployment:
-    description: Record the run as a GitHub Deployment to this environment name, for example gameye-sandbox. Needs `permissions: deployments: write`. Leave empty to skip.
+    description: "Record the run as a GitHub Deployment to this environment name, for example gameye-sandbox. Needs `permissions: deployments: write`. Leave empty to skip."
     default: ""
   github-token:
     description: Token used to create the GitHub Deployment.

@@ -13,3 +13,7 @@ jobs:
         with:
           node-version: 24
       - run: npm test
+      - name: action.yml is valid YAML
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 -c "import yaml; yaml.safe_load(open('action.yml'))"
